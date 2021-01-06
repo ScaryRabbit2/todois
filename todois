@@ -1,0 +1,179 @@
+#!/bin/bash
+#
+# NOTES structure:
+# 'id:progress:done:note'
+# 
+
+THIS=$( dirname `realpath "$0"` )
+
+# Notes file
+NOTES=~/.config/todois.lst
+TMPFILE=/tmp/todois_tmp
+
+# Icons
+CHECKED=$(echo -en '\uf634')
+UNCHECKED=$(echo -en '\uf630')
+DOTS=$(echo -en '\uf6d7')
+
+# Colors
+CHECKED_COL=$(echo -en '\033[0;32m')
+UNCHECKED_COL=$(echo -en '\033[0;33m')
+DOTS_COL=$(echo -en '\033[0;34m')
+RESET_COL=$(echo -en '\033[00m')
+
+# Default print settings
+color='true'
+list='true'
+glyphs='true'
+stats='true'
+
+getHighest () {
+	cat $NOTES | awk -F':'\
+	'BEGIN { out=0 }
+	{ if ($1 > out) out= $1	}
+	END { out+=1; print out;}'
+}
+
+parsePrintArgs () {
+	while [[ $# -gt 0 ]]; do
+		case $1 in
+			-c) color='false'; 	shift ;;
+			+c) color='true'; 	shift ;;
+			-l) list='false'; 	shift ;;
+			+l) list='true'; 	shift ;;
+			-g) glyphs='false';	shift ;;
+			+g) glyphs='true'; 	shift ;;
+			-s) stats='false'; 	shift ;;
+			+s) stats='true'; 	shift ;;
+
+			*)
+			echo "Unknown argument $1"
+			exit 1
+			;;
+		esac
+	done
+}
+
+# $1 is key
+print () {
+	parsePrintArgs $@
+
+	cat $NOTES \
+	| awk -f ${THIS}/print.awk \
+	-v done=$CHECKED \
+	-v progress=$DOTS \
+	-v pending=$UNCHECKED \
+	\
+	-v done_c=$CHECKED_COL \
+	-v progress_c=$UNCHECKED_COL \
+	-v pending_c=$DOTS_COL \
+	-v reset_c=$RESET_COL \
+	\
+	-v glyphs=$glyphs \
+	-v list=$list \
+	-v color=$color \
+	-v stats=$stats
+}
+
+add () {
+	note=""
+	#empty input
+	if [[ $# -eq 0 ]]; then
+		echo "Adding empty note"
+		exit 1
+	fi
+
+	# extract note from args
+	while [[ $# -gt 0  ]]; do
+		note="$note$1 "
+		shift
+	done
+
+	id=$(getHighest)
+	echo "${id}:false:false:${note}" >> $NOTES
+
+	echo "Note $id added"
+}
+
+delete () {
+	touch $TMPFILE
+
+	cat $NOTES | awk -F':' \
+	-v find=$1 \
+	-v file=$TMPFILE \
+	' BEGIN { flag = 0; }
+	{
+		if ( $1 ==find )
+			flag = 1;
+		else print $0 >> file
+	}
+	END {
+		if ( flag != 0 )
+			printf "Task %s deleted\n", find
+		else
+			printf "Task number %s does not exist\n", find
+	}'
+
+	mv $TMPFILE $NOTES
+}
+
+# $1 id, $2 progress, $3 done, $4 on operation, $5 stop operation
+change () {
+	touch $TMPFILE
+
+	cat $NOTES | awk -f ${THIS}/change.awk \
+	-v find=$1 \
+	-v progress=$2 \
+	-v done=$3 \
+	-v on=$4 \
+	-v off=$5 \
+	-v file=$TMPFILE \
+
+	mv $TMPFILE $NOTES
+}
+
+begin () {
+	change $1 'true' 'false' 'started' 'stoped'
+}
+
+check () {
+	change $1 'false' 'true' 'checked' 'unchecked'
+}
+
+help () {
+	echo -en \
+"Command line TODO list with customizable output
+
+Usage:
+	$1 [command] [options]
+
+Commands:
+	-p, --print \t prints the table
+	-a, --add \t adds input to table
+	-d, --delete \t deletes tasks
+	-b, --begin \t begins or stops tasks
+	-c, --check \t checks/unchecks tasks
+	-h, --help \t show this help
+
+Print options:
+	--pending \t print only pending #TODO
+	--progress \t print only in-progress #TODO
+	--checked \t print only checked #TODO
+
+	+c/-c \t\t switch color
+	+l/-l \t\t switch numbered list
+	+g/-g \t\t switch glyphs
+	+s/-s \t\t switch stats
+"
+}
+
+case $1 in
+    -p | --print | "" ) shift; print $@ ;;
+    -a | --add) shift; add $@ ;;
+	-d | --delete) shift; delete $@ ;;
+	-b | --begin) shift; begin $@ ;;
+	-c | --check) shift; check $@ ;;
+	-h | --help) help ;;
+
+    *) echo "Unknown argument $1" ;;
+esac
