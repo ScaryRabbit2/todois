@@ -16,6 +16,15 @@ BEGIN {
 }
 # MAIN
 {
+	if ( filter=="pending" && ( $2 =="true" || $3 =="true" ) )
+		next;
+
+	if ( filter=="progress" && ( $2 =="false" || $3 =="true" ) )
+		next;
+
+	if ( filter=="checked" && ( $2 =="true" || $3 =="false" ) )
+		next;
+
 	# print id if enabled
 	if ( list =="true" )
 		printf "%3.d. ", $1;

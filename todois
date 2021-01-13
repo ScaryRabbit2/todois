@@ -45,6 +45,17 @@ parsePrintArgs () {
 			+g) glyphs='true'; 	shift ;;
 			-s) stats='false'; 	shift ;;
 			+s) stats='true'; 	shift ;;
+			--pending)
+			filter='pending';
+			shift ;;
+
+			--progress)
+			filter='progress';
+			shift ;;
+
+			--checked)
+			filter='checked';
+			shift ;;
 
 			*)
 			echo "Unknown argument $1"
@@ -72,7 +83,9 @@ print () {
 	-v glyphs=$glyphs \
 	-v list=$list \
 	-v color=$color \
-	-v stats=$stats
+	-v stats=$stats\
+	\
+	-v filter=$filter
 }
 
 add () {
@@ -156,9 +169,9 @@ Commands:
 	-h, --help \t show this help
 
 Print options:
-	--pending \t print only pending #TODO
-	--progress \t print only in-progress #TODO
-	--checked \t print only checked #TODO
+	--pending \t print only pending
+	--progress \t print only in-progress
+	--checked \t print only checked
 
 	+c/-c \t\t switch color
 	+l/-l \t\t switch numbered list
